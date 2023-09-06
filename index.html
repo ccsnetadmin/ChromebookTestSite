@@ -1,198 +1,292 @@
-<!doctype html>
-<html lang="en">
-    
-<!-- Based on https://github.com/cppio/keyboard -->
+<!DOCTYPE html>
+<!-- A simple HTML page to view a video preview, useful for using a laptop as a monitor for a Raspberry Pi.
+Live version hosted at: https://www.sansay.co.uk/pi-view
+More details: https://github.com/dhicks6345789/pi-view
+This was very helpful in figuring out the details of how to use getUserMedia:
+	https://www.digitalocean.com/community/tutorials/front-and-rear-camera-access-with-javascripts-getusermedia
+-->
+<html>
 
 <head>
-    <meta charset="utf-8" />
-    <title>Chromebook Keyboard Tester</title>
-    <link rel="icon" href="https://upload.wikimedia.org/wikipedia/commons/4/49/OOjs_UI_icon_keyboard-progressive.svg" />
-    <style>
-        #container {
-            margin: 0px auto;
-            width: 300px;
-            height: 245px;
-            border: 10px #333 solid;
-            position: fixed;
-            right: 0;
-            z-index: 2;
-        }
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Chromebook Test Page</title>
+	<style>
+		.flex-container {
+			display: flex;
+		}
 
-        #videoElement {
-            width: 300px;
-            height: 225px;
-            background-color: #666;
-        }
+		.flex-child {
+			flex: 1;
+			margin: 10px;
+			height: 600px;
+			width: 650px;
+		}
 
-        #svgImage {
-            position: fixed;
-            z-index: 1;
-        }
+		.videoContainer {
+			margin: 0px auto;
+			width: 650px;
+			height: 429px;
+			border: 2px #0F0F0F solid;
+		}
 
-        div {
-            --volume: 0%;
-            position: fixed;
-            width: 300px;
-            height: 15px;
-            background-color: #333;
-        }
+		.videoUnmirrored {
+			width: 100%;
+			height: 100%;
+			background-color: #666;
+		}
 
-        div::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            left: 0;
-            width: var(--volume);
-            background-color: blue;
-            transition: width 100ms linear;
-        }
-    </style>
+		.videoMirrored {
+			width: 100%;
+			height: 100%;
+			background-color: #666;
+			-webkit-transform: scaleX(-1);
+			transform: scaleX(-1);
+		}
+
+		.videoButton {
+			background-color: #666;
+			height: 40px;
+			color: black;
+			padding: 5px;
+			text-align: center;
+			vertical-align: middle;
+			font-size: 16px;
+			margin: 4px 2px;
+			border-radius: 12px;
+			border: 2px #0F0F0F solid;
+		}
+
+		.volumeView {
+			--volume: 0%;
+			margin: 0px auto;
+			width: 650px;
+			height: 15px;
+			background-color: #333;
+			border: 2px #0F0F0F solid;
+		}
+
+		.volumeView2 {
+			content: '';
+			width: var(--volume);
+			height: 100%;
+			background-color: blue;
+			transition: width 100ms linear;
+		}
+	</style>
+
+	<script>
+		var video;
+		var videoDevices;
+		var videoMirrored;
+		var currentVideoStream;
+		var currentDeviceNumber;
+
+		// This is where main executation starts, when the page is loaded and ready.
+		function onPageLoad() {
+			video = document.querySelector("#videoElement");
+			videoMirrored = false;
+			currentDeviceNumber = 0;
+			currentVideoStream = "";
+			// Before we can get a list of media devices we need to request media permissions from the browser...
+			navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 4096 }, height: { ideal: 2160 } } })
+				.then(function (devices) {
+					// ...then we can get a list of available media input/output devices...
+					navigator.mediaDevices.enumerateDevices()
+						.then(function (devices) {
+							// ...and trim that list down to just video cameras.
+							videoDevices = devices.filter(device => device.kind === 'videoinput');
+							startVideo(currentDeviceNumber);
+						})
+						.catch(function (theError) {
+							console.log(theError);
+						});
+				})
+				.catch(function (theError) {
+					console.log(theError);
+				});
+
+			var touchzone = document.getElementById("mycanvas");
+			touchzone.addEventListener("touchstart", draw, false);
+			touchzone.addEventListener("mousedown", drawMouse, false)
+		}
+
+		// Connect to a specific camera.
+		function startVideo(videoDeviceNumber) {
+			if (navigator.mediaDevices.getUserMedia) {
+				// We set the mediaDevice constraints to an "ideal" 4K resolution, the browser will simply scale down to the best resolution available.
+				navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 4096 }, height: { ideal: 2160 }, deviceId: { exact: videoDevices[currentDeviceNumber]["deviceId"] } } })
+					.then(function (stream) {
+						video.srcObject = stream;
+						currentVideoStream = stream;
+					})
+					.catch(function (theError) {
+						console.log(theError);
+					});
+			}
+		}
+
+		// Called when the user clicks the "Full Screen" button.
+		function openFullscreen() {
+			if (video.requestFullscreen) {
+				video.requestFullscreen();
+			} else if (video.webkitRequestFullscreen) { /* Safari */
+				video.webkitRequestFullscreen();
+			} else if (video.msRequestFullscreen) { /* IE11 */
+				video.msRequestFullscreen();
+			}
+		}
+
+		// Switches the input to the next camera in the list, or goes back round to the first one if we've hit the end of the list.
+		function changeInput() {
+			currentVideoStream.getTracks().forEach(function (track) {
+				track.stop();
+			});
+			video.srcObject = null;
+			currentDeviceNumber = currentDeviceNumber + 1;
+			if (currentDeviceNumber == videoDevices.length) {
+				currentDeviceNumber = 0;
+			}
+			startVideo(currentDeviceNumber);
+		}
+
+		// Mirror / unmirror the video preview pane.
+		function setMirror() {
+			if (videoMirrored) {
+				videoMirrored = false;
+				video.className = "videoUnmirrored";
+			} else {
+				videoMirrored = true;
+				video.className = "videoMirrored";
+			}
+		}
+
+
+		function draw(event) {
+
+			var canvas = document.getElementById('mycanvas');
+			var offset = getOffset(canvas);
+			if (canvas.getContext) {
+				var ctx = canvas.getContext("2d");
+
+				ctx.fillStyle = '#000000';
+				ctx.fillRect(event.touches[0].pageX - offset.left - 10, event.touches[0].pageY - offset.top - 10, 20, 20);
+				ctx.fillStyle = '#0000ff';
+				ctx.fillRect(event.touches[0].pageX - offset.left - 8, event.touches[0].pageY - offset.top - 8, 16, 16);
+
+
+			}
+		}
+
+		function drawMouse(event) {
+
+			var canvas = document.getElementById('mycanvas');
+			var offset = getOffset(canvas);
+
+			if (canvas.getContext) {
+				var ctx = canvas.getContext("2d");
+
+				ctx.fillStyle = '#00ff00';
+				ctx.fillRect(event.pageX - offset.left - 4, event.pageY - offset.top - 4, 8, 8);
+
+			}
+		}
+
+		function getOffset(obj) {
+			var offsetLeft = 0;
+			var offsetTop = 0;
+			do {
+				if (!isNaN(obj.offsetLeft)) {
+					offsetLeft += obj.offsetLeft;
+				}
+				if (!isNaN(obj.offsetTop)) {
+					offsetTop += obj.offsetTop;
+				}
+			} while (obj = obj.offsetParent);
+			return { left: offsetLeft, top: offsetTop };
+		}
+
+	</script>
 </head>
+<!-- The (very few) HTML elements that make up the page - two buttons and a video preview window. -->
 
-<body style="margin: 0; height: 100vh; background-color: #222;">
-    <audio id="audioCube" src="audio_file.mp3">
-        Your LAME browser does not support HTML5 audio!
-    </audio>
-    <!-- Video Code from https://www.kirupa.com/html5/accessing_your_webcam_in_html5.htm -->
-    <div id="container">
-        <video autoplay="true" id="videoElement">
+<body onload="onPageLoad()" style="background-color: #303030;">
+	<div class="flex-container">
+		<div class="flex-child leftDiv">
+			<div style="text-align:center; height: 50px; margin-bottom: 10px;">
+				<!-- <button class="videoButton" onclick="openFullscreen();">Full Screen</button> -->
+				<button class="videoButton" onclick="changeInput();">Switch Active Camera</button>
+				<!-- <button class="videoButton" onclick="setMirror();">Mirror Video</button> -->
+			</div>
+			<div id="videoContainer" class="videoContainer" style="background-color: #303030;">
+				<video autoplay="true" id="videoElement" class="videoUnmirrored"></video>
+			</div>
+		</div>
+		<div class="flex-child rightDiv" style="text-align:center;">
 
-        </video>
-        <!-- Audio Bar code from https://stackoverflow.com/a/64650826 -->
-        <div id="volume-visualizer"></div>
-    </div>
-    <svg id="svgImage" viewBox="0 0 1031.137 406.693" width="100%" height="100%" fill="lightgray">
-        <rect id="Escape" x="22.455" y="34.796" width="51.004" height="50.994" />
-        <rect id="Backquote" x="22.455" y="113.411" width="51.004" height="50.994" />
-        <rect id="Digit1" x="76.434" y="113.411" width="51.004" height="50.994" />
-        <rect id="Digit2" x="130.413" y="113.411" width="51.005" height="50.994" />
-        <rect id="Digit3" x="184.393" y="113.411" width="51.004" height="50.994" />
-        <rect id="Digit4" x="238.373" y="113.411" width="51.004" height="50.994" />
-        <rect id="Digit5" x="292.352" y="113.411" width="51.005" height="50.994" />
-        <rect id="Digit6" x="346.333" y="113.411" width="51.004" height="50.994" />
-        <rect id="Digit7" x="400.313" y="113.411" width="51.004" height="50.994" />
-        <rect id="Digit8" x="454.293" y="113.411" width="51.004" height="50.994" />
-        <rect id="Digit9" x="508.272" y="113.411" width="51.005" height="50.994" />
-        <rect id="Digit0" x="562.252" y="113.411" width="51.004" height="50.994" />
-        <rect id="Minus" x="616.232" y="113.411" width="51.004" height="50.994" />
-        <rect id="Equal" x="670.212" y="113.411" width="51.004" height="50.994" />
-        <rect id="Backspace" x="724.205" y="113.411" width="77.994" height="50.994" />
-        <rect id="Tab" x="22.455" y="167.38" width="77.994" height="50.994" />
-        <rect id="KeyQ" x="103.424" y="167.38" width="51.005" height="50.994" />
-        <rect id="KeyW" x="157.405" y="167.38" width="51.004" height="50.994" />
-        <rect id="KeyE" x="211.385" y="167.38" width="51.004" height="50.994" />
-        <rect id="KeyR" x="265.364" y="167.38" width="51.005" height="50.994" />
-        <rect id="KeyT" x="319.344" y="167.38" width="51.005" height="50.994" />
-        <rect id="KeyY" x="373.323" y="167.38" width="51.005" height="50.994" />
-        <rect id="KeyU" x="427.304" y="167.38" width="51.004" height="50.994" />
-        <rect id="KeyI" x="481.284" y="167.38" width="51.005" height="50.994" />
-        <rect id="KeyO" x="535.264" y="167.38" width="51.004" height="50.994" />
-        <rect id="KeyP" x="589.244" y="167.38" width="51.004" height="50.994" />
-        <rect id="BracketLeft" x="643.224" y="167.38" width="51.004" height="50.994" />
-        <rect id="BracketRight" x="697.203" y="167.38" width="51.004" height="50.994" />
-        <rect id="Backslash" x="751.182" y="167.38" width="51.004" height="50.994" />
-        <rect id="KeyA" x="116.89" y="221.349" width="51.004" height="50.994" />
-        <rect id="KeyS" x="170.87" y="221.349" width="51.004" height="50.994" />
-        <rect id="KeyD" x="224.849" y="221.349" width="51.005" height="50.994" />
-        <rect id="KeyF" x="278.83" y="221.349" width="51.004" height="50.994" />
-        <rect id="KeyG" x="332.81" y="221.349" width="51.004" height="50.994" />
-        <rect id="KeyH" x="386.789" y="221.349" width="51.005" height="50.994" />
-        <rect id="KeyJ" x="440.769" y="221.349" width="51.005" height="50.994" />
-        <rect id="KeyK" x="494.749" y="221.349" width="51.005" height="50.994" />
-        <rect id="KeyL" x="548.729" y="221.349" width="51.005" height="50.994" />
-        <rect id="Semicolon" x="602.709" y="221.349" width="51.004" height="50.994" />
-        <rect id="Quote" x="656.688" y="221.349" width="51.005" height="50.994" />
-        <rect id="Enter" x="710.667" y="221.349" width="91.53" height="50.994" />
-        <rect id="ShiftLeft" x="22.455" y="274.963" width="118.520" height="50.994" />
-        <rect id="KeyZ" x="143.950" y="274.963" width="51.005" height="50.994" />
-        <rect id="KeyX" x="197.931" y="274.963" width="51.004" height="50.994" />
-        <rect id="KeyC" x="251.911" y="274.963" width="51.004" height="50.994" />
-        <rect id="KeyV" x="305.891" y="274.963" width="51.005" height="50.994" />
-        <rect id="KeyB" x="359.87" y="274.963" width="51.005" height="50.994" />
-        <rect id="KeyN" x="413.85" y="274.963" width="51.004" height="50.994" />
-        <rect id="KeyM" x="467.83" y="274.963" width="51.004" height="50.994" />
-        <rect id="Comma" x="521.81" y="274.963" width="51.004" height="50.994" />
-        <rect id="Period" x="575.79" y="274.963" width="51.004" height="50.994" />
-        <rect id="Slash" x="629.769" y="274.963" width="51.004" height="50.994" />
-        <rect id="ShiftRight" x="684.458" y="274.963" width="118.447" height="50.994" />
-        <rect id="ArrowUp" x="902.013" y="274.963" width="51.004" height="50.994" />
-        <rect id="ControlLeft" x="22.81" y="328.932" width="99.499" height="50.994" />
-        <rect id="AltLeft" x="125.258" y="328.932" width="97.499" height="50.994" />
-        <rect id="Space" x="225.587" y="328.932" width="334.411" height="50.994" />
-        <rect id="AltRight" x="562.619" y="328.932" width="64.499" height="50.994" />
-        <rect id="ControlRight" x="630.093" y="328.932" width="64.499" height="50.994" />
-        <rect id="ArrowLeft" x="848.032" y="328.932" width="51.005" height="50.994" />
-        <rect id="ArrowDown" x="902.013" y="328.932" width="51.004" height="50.994" />
-        <rect id="ArrowRight" x="955.992" y="328.932" width="51.005" height="50.994" />
-    </svg>
-    <script>
-        const onkey = event => {
-            event.preventDefault();
-            const element = document.getElementById(event.code);
-            if (element) {
-                element.setAttribute('fill', event.type === 'keyup' ? 'lime' : 'red');
-                if (element.id == "Escape") {
-                    audioCube.play();
-                }
-            };
-        };
-        addEventListener('keydown', onkey);
-        addEventListener('keyup', onkey);
+			<!-- Audio Checks from https://www.audiocheck.net/audiotests_stereo.php -->
+			<div style="text-align:center; height: 50px; margin-bottom: 10px;">
+				<audio id="sound1" src="left.ogg" preload="auto"></audio>
+				<audio id="sound2" src="right.ogg" preload="auto"></audio>
+				<button class = "videoButton" onclick="document.getElementById('sound1').play();">▶ Test Left&nbsp;</button>
+				<button class="videoButton" id="start">Test Microphone</button>
+				<button class = "videoButton" onclick="document.getElementById('sound2').play();">&nbsp;Test Right ◀</button>
+			</div>
 
-        var video = document.querySelector("#videoElement");
+			<!-- Audio Bar code from https://stackoverflow.com/a/64650826 -->
 
-        if (navigator.mediaDevices.getUserMedia) {
-            navigator.mediaDevices.getUserMedia({ video: true })
-                .then(function (stream) {
-                    video.srcObject = stream;
-                })
-                .catch(function (err0r) {
-                    console.log("Something went wrong!");
-                });
-        }
+			<div class="volumeView" id="volume-visualizer" style="margin-bottom: 10px;">
+				<div class="volumeView2" id="volume-visualizer"></div>
+			</div>
 
-        (async () => {
-            let volumeCallback = null;
-            let volumeInterval = null;
-            const volumeVisualizer = document.getElementById('volume-visualizer');
-            const startButton = document.getElementById('start');
-            const stopButton = document.getElementById('stop');
-            const audioStream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    echoCancellation: true
-                }
-            });
-            const audioContext = new AudioContext();
-            const audioSource = audioContext.createMediaStreamSource(audioStream);
-            const analyser = audioContext.createAnalyser();
-            analyser.fftSize = 512;
-            analyser.minDecibels = -127;
-            analyser.maxDecibels = 0;
-            analyser.smoothingTimeConstant = 0.4;
-            audioSource.connect(analyser);
-            const volumes = new Uint8Array(analyser.frequencyBinCount);
-            volumeCallback = () => {
-                analyser.getByteFrequencyData(volumes);
-                let volumeSum = 0;
-                for (const volume of volumes)
-                    volumeSum += volume;
-                const averageVolume = volumeSum / volumes.length;
-                // Value range: 127 = analyser.maxDecibels - analyser.minDecibels;
-                volumeVisualizer.style.setProperty('--volume', (averageVolume * 100 / 127) + '%');
-            };
-            // Use
-            addEventListener('keyup', (e) => {
-                // Updating every 100ms (should be same as CSS transition speed)
-                if (e.key === 'Escape') {
-                    if (volumeCallback !== null && volumeInterval === null)
-                        volumeInterval = setInterval(volumeCallback, 100);
-                }
-            });
-        })();
+			<script>
+
+				(async () => {
+					let volumeCallback = null;
+					let volumeInterval = null;
+					const volumeVisualizer = document.getElementById('volume-visualizer');
+					const startButton = document.getElementById('start');
+					const audioStream = await navigator.mediaDevices.getUserMedia({
+						audio: {
+							echoCancellation: true
+						}
+					});
+					const audioContext = new AudioContext();
+					const audioSource = audioContext.createMediaStreamSource(audioStream);
+					const analyser = audioContext.createAnalyser();
+					analyser.fftSize = 512;
+					analyser.minDecibels = -127;
+					analyser.maxDecibels = 0;
+					analyser.smoothingTimeConstant = 0.4;
+					audioSource.connect(analyser);
+					const volumes = new Uint8Array(analyser.frequencyBinCount);
+					volumeCallback = () => {
+						analyser.getByteFrequencyData(volumes);
+						let volumeSum = 0;
+						for (const volume of volumes)
+							volumeSum += volume;
+						const averageVolume = volumeSum / volumes.length;
+						// Value range: 127 = analyser.maxDecibels - analyser.minDecibels;
+						volumeVisualizer.style.setProperty('--volume', (averageVolume * 100 / 127) + '%');
+					};
+
+					startButton.addEventListener('click', () => {
+						// Updating every 100ms (should be same as CSS transition speed)
+						if (volumeCallback !== null && volumeInterval === null)
+							volumeInterval = setInterval(volumeCallback, 100);
+					});
+				})();
+			</script>
 
 
-    </script>
+			<canvas id="mycanvas" width="650px" height="400px"
+				style="background-color: #666; border: 2px #0F0F0F solid;">
+				Canvas element not supported.
+			</canvas>
+		</div>
+	</div>
+
+
 </body>
 
 </html>
