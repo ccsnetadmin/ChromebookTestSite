@@ -95,7 +95,7 @@ Based on: https://github.com/dhicks6345789/pi-view
 			function startVideo(videoDeviceNumber) {
 				if (navigator.mediaDevices.getUserMedia) {
 					// We set the mediaDevice constraints to an "ideal" 4K resolution, the browser will simply scale down to the best resolution available.
-					navigator.mediaDevices.getUserMedia({video:{width:{ideal:1920},height:{ideal:1080},deviceId:{exact:videoDevices[currentDeviceNumber]["deviceId"]}}})
+					navigator.mediaDevices.getUserMedia({video:{width:{ideal:3840},height:{ideal:2160},deviceId:{exact:videoDevices[currentDeviceNumber]["deviceId"]}}})
 					.then(function (stream) {
 						video.srcObject = stream;
 						currentVideoStream = stream;
