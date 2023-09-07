@@ -71,6 +71,7 @@ Based on: https://github.com/dhicks6345789/pi-view
 				videoMirroredY = false;
 				currentDeviceNumber = 0;
 				currentVideoStream = "";
+				isPaused = false;
 				// Before we can get a list of media devices we need to request media permissions from the browser...
 				navigator.mediaDevices.getUserMedia({video:{width:{ideal:4096},height:{ideal:2160}}})
 				.then(function (devices) {
@@ -165,6 +166,16 @@ Based on: https://github.com/dhicks6345789/pi-view
 					}
 				}
 			}
+
+			function playpause() {
+				if (isPaused){
+					video.play()
+					isPaused = false;
+				} else {
+					video.pause()
+					isPaused = true;
+				}
+			}
 		</script>
 	</head>
 
@@ -175,9 +186,10 @@ Based on: https://github.com/dhicks6345789/pi-view
 		</div>
 		<div style="position: absolute; bottom: 0px; right: 0px;">
 			<button class="videoButton" onclick="changeInput();">📷</button>
-			<button class="videoButton" onclick="openFullscreen();">⛶</button>
+			<button class="videoButton" onclick="playpause();">❄</button>
 			<button class="videoButton" onclick="setMirrorX();">⬌</button>
 			<button class="videoButton" onclick="setMirrorY();">⬍</button>
+			<button class="videoButton" onclick="openFullscreen();">⛶</button>
 		</div>
 	</body>
 </html>
