@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<!-- A simple webpage for selecting, viewing, and flipping a webcam feed
+Based on: https://github.com/dhicks6345789/pi-view
+-->
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>Camera Viewer</title>
+		<style>
+			div, body {
+				margin: 0px;
+				padding: 0px;
+			}
+			.videoContainer {
+				margin: 0px auto;
+				width: 100%;
+				height: 100%;
+				position: absolute;
+				border: 0px #000000 solid;
+			}
+			.videoUnmirrored {
+				width: 100%;
+				height: 100%;
+				background-color: #303030;
+			}
+			.videoMirroredX {
+				width: 100%;
+				height: 100%;
+				background-color: #303030;
+				-webkit-transform: scaleX(-1);
+				transform: scaleX(-1);
+			}
+			.videoMirroredY {
+				width: 100%;
+				height: 100%;
+				background-color: #303030;
+				-webkit-transform: scaleY(-1);
+				transform: scaleY(-1);
+			}
+			.videoMirroredXY {
+				width: 100%;
+				height: 100%;
+				background-color: #303030;
+				-webkit-transform: scale(-1, -1);
+				transform: scale(-1, -1);
+			}
+			.videoButton {
+				background-color: #0C0C0C;
+				color: white;
+				height: 40px;
+				width: 40px;
+				text-align: center;
+				font-size: 25px;
+				margin: 4px 2px;
+				border-radius: 12px;
+				display: block;
+			}
+		</style>
+		<script>
+			var video;
+			var videoDevices;
+			var videoMirroredX;
+			var currentVideoStream;
+			var currentDeviceNumber;
+
+			// This is where main executation starts, when the page is loaded and ready.
+			function onPageLoad() {
+				video = document.querySelector("#videoElement");
+				videoMirroredX = false;
+				videoMirroredY = false;
+				currentDeviceNumber = 0;
+				currentVideoStream = "";
+				// Before we can get a list of media devices we need to request media permissions from the browser...
+				navigator.mediaDevices.getUserMedia({video:{width:{ideal:4096},height:{ideal:2160}}})
+				.then(function (devices) {
+					// ...then we can get a list of available media input/output devices...
+					navigator.mediaDevices.enumerateDevices()
+					.then(function (devices) {
+						// ...and trim that list down to just video cameras.
+						videoDevices = devices.filter(device => device.kind === 'videoinput');
+						startVideo(currentDeviceNumber);
+					})
+					.catch(function (theError) {
+						console.log(theError);
+					});
+				})
+				.catch(function (theError) {
+					console.log(theError);
+				});
+			}
+			
+			// Connect to a specific camera.
+			function startVideo(videoDeviceNumber) {
+				if (navigator.mediaDevices.getUserMedia) {
+					// We set the mediaDevice constraints to an "ideal" 4K resolution, the browser will simply scale down to the best resolution available.
+					navigator.mediaDevices.getUserMedia({video:{width:{ideal:1920},height:{ideal:1080},deviceId:{exact:videoDevices[currentDeviceNumber]["deviceId"]}}})
+					.then(function (stream) {
+						video.srcObject = stream;
+						currentVideoStream = stream;
+					})
+					.catch(function (theError) {
+						console.log(theError);
+					});
+				}
+			}
+			
+			// Called when the user clicks the "Full Screen" button.
+			function openFullscreen() {
+				if (video.requestFullscreen) {
+					video.requestFullscreen();
+				} else if (video.webkitRequestFullscreen) { /* Safari */
+					video.webkitRequestFullscreen();
+				} else if (video.msRequestFullscreen) { /* IE11 */
+					video.msRequestFullscreen();
+				}
+			}
+			
+			// Switches the input to the next camera in the list, or goes back round to the first one if we've hit the end of the list.
+			function changeInput() {
+				currentVideoStream.getTracks().forEach(function(track) {
+					track.stop();
+				});
+				video.srcObject = null;
+				currentDeviceNumber = currentDeviceNumber + 1;
+				if (currentDeviceNumber == videoDevices.length) {
+					currentDeviceNumber = 0;
+				}
+				startVideo(currentDeviceNumber);
+			}
+			
+			// Mirror / unmirror the video preview pane.
+			function setMirrorX() {
+				if (videoMirroredX) {
+					videoMirroredX = false;
+					if (videoMirroredY) {
+						video.className = "videoMirroredY";
+					} else {
+						video.className = "videoUnmirrored";
+					}
+				} else {
+					videoMirroredX = true;
+					if (videoMirroredY) {
+						video.className = "videoMirroredXY";
+					} else {
+						video.className = "videoMirroredX";
+					}
+				}
+			}
+
+			function setMirrorY() {
+				if (videoMirroredY) {
+					videoMirroredY = false;
+					if (videoMirroredX) {
+						video.className = "videoMirroredX";
+					} else {
+						video.className = "videoUnmirrored";
+					}
+				} else {
+					videoMirroredY = true;
+					if (videoMirroredX) {
+						video.className = "videoMirroredXY";
+					} else {
+						video.className = "videoMirroredY";
+					}
+				}
+			}
+		</script>
+	</head>
+
+	<!-- The (very few) HTML elements that make up the page - two buttons and a video preview window. -->
+	<body onload="onPageLoad()">
+		<div id="videoContainer" class="videoContainer" style="background-color: black;">
+			<video autoplay="true" id="videoElement" class="videoUnmirrored"></video>
+		</div>
+		<div style="position: absolute; bottom: 0px; right: 0px;">
+			<button class="videoButton" onclick="changeInput();">📷</button>
+			<button class="videoButton" onclick="setMirrorX();">⬌</button>
+			<button class="videoButton" onclick="setMirrorY();">⬍</button>
+		</div>
+	</body>
+</html>
