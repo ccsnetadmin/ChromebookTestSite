@@ -63,6 +63,18 @@ Based on: https://github.com/dhicks6345789/pi-view
 			var videoMirroredX;
 			var currentVideoStream;
 			var currentDeviceNumber;
+			const url = new URL(window.location.href);
+
+			function getQueryVariable(variable)
+				{
+					var query = window.location.search.substring(1);
+					var vars = query.split("&");
+					for (var i=0;i<vars.length;i++) {
+							var pair = vars[i].split("=");
+							if(pair[0] == variable){return pair[1];}
+					}
+					return(false);
+				}
 
 			// This is where main executation starts, when the page is loaded and ready.
 			function onPageLoad() {
@@ -89,13 +101,26 @@ Based on: https://github.com/dhicks6345789/pi-view
 				.catch(function (theError) {
 					console.log(theError);
 				});
+
+				urlParams = new URLSearchParams(window.location.search);
+
+				startOrientation = getQueryVariable("flip");
+				console.log(startOrientation)
+				if (startOrientation != false) {
+					if (startOrientation.includes('X')) {
+						setMirrorX();
+					}
+					if (startOrientation.includes('Y')) {
+						setMirrorY();
+					}
+				}
 			}
 			
 			// Connect to a specific camera.
 			function startVideo(videoDeviceNumber) {
 				if (navigator.mediaDevices.getUserMedia) {
 					// We set the mediaDevice constraints to an "ideal" 4K resolution, the browser will simply scale down to the best resolution available.
-					navigator.mediaDevices.getUserMedia({video:{width:{ideal:3840},height:{ideal:2160},deviceId:{exact:videoDevices[currentDeviceNumber]["deviceId"]}}})
+					navigator.mediaDevices.getUserMedia({video:{width:{ideal:1920},height:{ideal:1080},deviceId:{exact:videoDevices[currentDeviceNumber]["deviceId"]}}})
 					.then(function (stream) {
 						video.srcObject = stream;
 						currentVideoStream = stream;
@@ -105,6 +130,7 @@ Based on: https://github.com/dhicks6345789/pi-view
 					});
 				}
 			}
+
 			
 			// Called when the user clicks the "Full Screen" button.
 			function openFullscreen() {
@@ -136,17 +162,22 @@ Based on: https://github.com/dhicks6345789/pi-view
 					videoMirroredX = false;
 					if (videoMirroredY) {
 						video.className = "videoMirroredY";
+						url.searchParams.set("flip","Y");
 					} else {
 						video.className = "videoUnmirrored";
+						url.searchParams.set("flip","none");
 					}
 				} else {
 					videoMirroredX = true;
 					if (videoMirroredY) {
 						video.className = "videoMirroredXY";
+						url.searchParams.set("flip","XY");
 					} else {
 						video.className = "videoMirroredX";
+						url.searchParams.set("flip","X");
 					}
 				}
+				window.history.pushState({ path: url.href }, '', url.href);
 			}
 
 			function setMirrorY() {
@@ -154,19 +185,24 @@ Based on: https://github.com/dhicks6345789/pi-view
 					videoMirroredY = false;
 					if (videoMirroredX) {
 						video.className = "videoMirroredX";
+						url.searchParams.set("flip","X");
 					} else {
 						video.className = "videoUnmirrored";
+						url.searchParams.set("flip","none");
 					}
 				} else {
 					videoMirroredY = true;
 					if (videoMirroredX) {
 						video.className = "videoMirroredXY";
+						url.searchParams.set("flip","XY");
 					} else {
 						video.className = "videoMirroredY";
+						url.searchParams.set("flip","Y");
 					}
 				}
+				window.history.pushState({ path: url.href }, '', url.href);
 			}
-
+			
 			function playpause() {
 				if (isPaused){
 					video.play()
