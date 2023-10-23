@@ -241,6 +241,18 @@ This was very helpful in figuring out the details of how to use getUserMedia:
 
 			<script>
 
+				const onkey = event => {
+					event.preventDefault();
+					if (event.code == "ArrowLeft") {
+						document.getElementById('sound1').play();
+					}
+					if (event.code == "ArrowRight") {
+						document.getElementById('sound2').play();
+					}
+				}
+
+				addEventListener('keydown', onkey);
+
 				(async () => {
 					let volumeCallback = null;
 					let volumeInterval = null;
